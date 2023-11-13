@@ -12,7 +12,7 @@
     <div class="max-w-sm mx-auto m-4 space-y-4">
         <div class="p-4 shadow rounded bg-white space-y-1">
             <div>
-                <button class="border bg-white px-2 py-1 rounded-sm" onclick="insertBold()">
+                <button class="border bg-white px-2 py-1 rounded-sm" onclick="toggleFormatting('bold')">
                     <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#212121"
                         gradientcolor1="#212121" gradientcolor2="#212121">
                         <path
@@ -20,7 +20,7 @@
                         </path>
                     </svg>
                 </button>
-                <button class="border bg-white px-2 py-1 rounded-sm" onclick="insertItalic()">
+                <button class="border bg-white px-2 py-1 rounded-sm" onclick="toggleFormatting('italic')">
                     <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#212121"
                         gradientcolor1="#212121" gradientcolor2="#212121">
                         <path
@@ -28,7 +28,7 @@
                         </path>
                     </svg>
                 </button>
-                <button class="border bg-white px-2 py-1 rounded-sm" onclick="insertStrikeThrough()">
+                <button class="border bg-white px-2 py-1 rounded-sm" onclick="toggleFormatting('strike')">
                     <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#212121"
                         gradientcolor1="#212121" gradientcolor2="#212121">
                         <path
@@ -36,7 +36,7 @@
                         </path>
                     </svg>
                 </button>
-                <button class="border bg-white px-2 py-1 rounded-sm" onclick="insertCode()">
+                <button class="border bg-white px-2 py-1 rounded-sm" onclick="toggleFormatting('code')">
                     <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#212121"
                         gradientcolor1="#212121" gradientcolor2="#212121">
                         <path
@@ -72,30 +72,35 @@
     </div>
 
     <script>
-        function insertBold() {
-            modifySelectionText('<b>', '</b>');
-        }
+        const toggleFormatting = (type) => {
+            let openTag, closeTag;
 
-        function insertItalic() {
-            modifySelectionText('<i>', '</i>');
-        }
-
-        function insertStrikeThrough() {
-            modifySelectionText('<s>', '</s>');
-        }
-
-        function insertCode() {
-            modifySelectionText('<code>', '</code>');
-        }
-
-        function insertLink() {
-            const url = prompt('Enter the URL:');
-            if (url) {
-                modifySelectionText(`<a href="${url}">`, '</a>');
+            switch (type) {
+                case 'bold':
+                    openTag = '**';
+                    closeTag = '**';
+                    break;
+                case 'italic':
+                    openTag = '_';
+                    closeTag = '_';
+                    break;
+                case 'strike':
+                    openTag = '~';
+                    closeTag = '~';
+                    break;
+                case 'code':
+                    openTag = '`';
+                    closeTag = '`';
+                    break;
+                default:
+                    openTag = '';
+                    closeTag = '';
             }
+
+            modifySelectionText(openTag, closeTag);
         }
 
-        function modifySelectionText(openTag, closeTag) {
+        const modifySelectionText = (openTag, closeTag) => {
             const textarea = document.getElementById('content');
             const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
 
@@ -103,29 +108,41 @@
                 const textBeforeSelection = textarea.value.substring(0, textarea.selectionStart);
                 const textAfterSelection = textarea.value.substring(textarea.selectionEnd);
 
-                const modifiedText = openTag + selectedText + closeTag;
-                const newText = textBeforeSelection + modifiedText + textAfterSelection;
+                const isTagAlreadyApplied = textBeforeSelection.endsWith(openTag) && textAfterSelection.startsWith(closeTag);
 
-                textarea.value = newText;
+                if (isTagAlreadyApplied) {
+                    const newText = textBeforeSelection.slice(0, -openTag.length) + selectedText + textAfterSelection.slice(closeTag.length);
+                    textarea.value = newText;
+                    textarea.selectionStart = textBeforeSelection.length - openTag.length;
+                    textarea.selectionEnd = textarea.selectionStart + selectedText.length;
+                } else {
+                    const modifiedText = openTag + selectedText + closeTag;
+                    const newText = textBeforeSelection + modifiedText + textAfterSelection;
 
-                // Set the cursor position after the modified text
-                textarea.selectionStart = textBeforeSelection.length + modifiedText.length - closeTag.length;
-                textarea.selectionEnd = textarea.selectionStart;
+                    textarea.value = newText;
+
+                    textarea.selectionStart = textBeforeSelection.length + openTag.length;
+                    textarea.selectionEnd = textarea.selectionStart + selectedText.length;
+                }
             } else {
                 const cursorPos = textarea.selectionStart;
                 const textBeforeCursor = textarea.value.substring(0, cursorPos);
                 const textAfterCursor = textarea.value.substring(cursorPos);
 
-                const tag = openTag + closeTag;
+                if (textBeforeCursor.endsWith(openTag) && textAfterCursor.startsWith(closeTag)) {
+                    const newText = textBeforeCursor.slice(0, -openTag.length) + textAfterCursor.slice(closeTag.length);
+                    textarea.value = newText;
+                    textarea.selectionStart = textBeforeCursor.length - openTag.length;
+                    textarea.selectionEnd = textarea.selectionStart;
+                } else {
+                    const tag = openTag + closeTag;
+                    textarea.value = textBeforeCursor + tag + textAfterCursor;
 
-                textarea.value = textBeforeCursor + tag + textAfterCursor;
-
-                // Set the cursor position in the middle of the tag
-                textarea.selectionStart = cursorPos + openTag.length;
-                textarea.selectionEnd = cursorPos + openTag.length;
+                    textarea.selectionStart = cursorPos + openTag.length;
+                    textarea.selectionEnd = cursorPos + openTag.length;
+                }
             }
 
-            // Focus back on the textarea
             textarea.focus();
 
             // Update the preview after modifying text
@@ -135,13 +152,50 @@
             showPreview();
         }
 
-        function updatePreview() {
-            const textarea = document.getElementById('content');
-            const preview = document.getElementById('preview');
-            preview.innerHTML = textarea.value;
+        const insertLink = () => {
+            const url = prompt('Enter the URL:');
+            if (url) {
+                const textarea = document.getElementById('content');
+                const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+                const link = `[${selectedText}](${url})`;
+
+                if (selectedText) {
+                    const textBeforeSelection = textarea.value.substring(0, textarea.selectionStart);
+                    const textAfterSelection = textarea.value.substring(textarea.selectionEnd);
+
+                    const newText = textBeforeSelection + link + textAfterSelection;
+
+                    textarea.value = newText;
+                    textarea.focus();
+                    textarea.selectionStart = textBeforeSelection.length;
+                    textarea.selectionEnd = textBeforeSelection.length + link.length;
+                } else {
+                    textarea.value += link;
+                }
+            }
+
+            // Update the preview after modifying text
+            updatePreview();
+
+            // Show the preview if the textarea has content
+            showPreview();
         }
 
-        function showPreview() {
+        const updatePreview = () => {
+            const textarea = document.getElementById('content');
+            const preview = document.getElementById('preview');
+            let previewText = textarea.value;
+
+            previewText = previewText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            previewText = previewText.replace(/_(.*?)_/g, '<em>$1</em>');
+            previewText = previewText.replace(/~(.*?)~/g, '<del>$1</del>');
+            previewText = previewText.replace(/`(.*?)`/g, '<code>$1</code>');
+            previewText = previewText.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
+
+            preview.innerHTML = previewText;
+        }
+
+        const showPreview = () => {
             const textarea = document.getElementById('content');
             const preview = document.getElementById('preview');
 
