@@ -154,8 +154,8 @@
 
         const insertLink = () => {
             const url = prompt('Enter the URL:');
+            const textarea = document.getElementById('content');
             if (url) {
-                const textarea = document.getElementById('content');
                 const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
                 const link = `[${selectedText}](${url})`;
 
@@ -167,12 +167,22 @@
 
                     textarea.value = newText;
                     textarea.focus();
-                    textarea.selectionStart = textBeforeSelection.length;
-                    textarea.selectionEnd = textBeforeSelection.length + link.length;
+                    textarea.selectionStart = textBeforeSelection.length + 1;
+                    textarea.selectionEnd = textBeforeSelection.length + 1 + selectedText.length;
                 } else {
-                    textarea.value += link;
+                    const textBeforeCursor = textarea.value.substring(0, textarea.selectionStart);
+                    const textAfterCursor = textarea.value.substring(textarea.selectionEnd);
+
+                    const newText = textBeforeCursor + '[' + ']' + '(' + url + ')' + textAfterCursor;
+
+                    textarea.value = newText;
+                    textarea.focus();
+                    textarea.selectionStart = textBeforeCursor.length + 1;
+                    textarea.selectionEnd = textBeforeCursor.length + 1;
                 }
             }
+
+            textarea.focus();
 
             // Update the preview after modifying text
             updatePreview();
