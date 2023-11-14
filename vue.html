@@ -12,7 +12,7 @@
     <div class="max-w-sm mx-auto m-4 space-y-4" id="app">
         <div class="p-4 shadow rounded bg-white space-y-1">
             <div>
-                <button class="border bg-white px-2 py-1 rounded-sm" @click="insertFormat('bold')">
+                <button class="border bg-white px-2 py-1 rounded-sm" @click="toggleFormatting('bold')">
                     <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#212121"
                         gradientcolor1="#212121" gradientcolor2="#212121">
                         <path
@@ -20,7 +20,7 @@
                         </path>
                     </svg>
                 </button>
-                <button class="border bg-white px-2 py-1 rounded-sm" @click="insertFormat('italic')">
+                <button class="border bg-white px-2 py-1 rounded-sm" @click="toggleFormatting('italic')">
                     <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#212121"
                         gradientcolor1="#212121" gradientcolor2="#212121">
                         <path
@@ -28,7 +28,7 @@
                         </path>
                     </svg>
                 </button>
-                <button class="border bg-white px-2 py-1 rounded-sm" @click="insertFormat('strikethrough')">
+                <button class="border bg-white px-2 py-1 rounded-sm" @click="toggleFormatting('strike')">
                     <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#212121"
                         gradientcolor1="#212121" gradientcolor2="#212121">
                         <path
@@ -36,7 +36,7 @@
                         </path>
                     </svg>
                 </button>
-                <button class="border bg-white px-2 py-1 rounded-sm" @click="insertFormat('code')">
+                <button class="border bg-white px-2 py-1 rounded-sm" @click="toggleFormatting('code')">
                     <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#212121"
                         gradientcolor1="#212121" gradientcolor2="#212121">
                         <path
@@ -62,12 +62,12 @@
             </div>
             <div>
                 <textarea class="border w-full focus:outline-none px-2 py-1 h-24 rounded-sm" v-model="content"
-                    @select="onSelect"></textarea>
+                    @input="updatePreview"></textarea>
             </div>
         </div>
         <div class="p-4 shadow rounded bg-white" v-if="content.length">
             <h3 class="-mt-2 border-b pb-1 mb-2">Preview</h3>
-            <div v-html="content"></div>
+            <div id="preview"></div>
         </div>
     </div>
 
@@ -80,39 +80,32 @@
             setup() {
                 const content = ref('');
 
-                const insertFormat = (format) => {
-                    let openTag = '';
-                    let closeTag = '';
+                const toggleFormatting = (type) => {
+                    let openTag = '', closeTag = '';
 
-                    switch (format) {
+                    switch (type) {
                         case 'bold':
-                            openTag = '<b>';
-                            closeTag = '</b>';
+                            openTag = '**';
+                            closeTag = '**';
                             break;
                         case 'italic':
-                            openTag = '<i>';
-                            closeTag = '</i>';
+                            openTag = '_';
+                            closeTag = '_';
                             break;
-                        case 'strikethrough':
-                            openTag = '<s>';
-                            closeTag = '</s>';
+                        case 'strike':
+                            openTag = '~';
+                            closeTag = '~';
                             break;
                         case 'code':
-                            openTag = '<code>';
-                            closeTag = '</code>';
+                            openTag = '`';
+                            closeTag = '`';
                             break;
                         default:
-                            break;
+                            openTag = '';
+                            closeTag = '';
                     }
 
                     modifySelectionText(openTag, closeTag);
-                };
-
-                const insertLink = () => {
-                    const url = prompt('Enter the URL:');
-                    if (url) {
-                        modifySelectionText(`<a href="${url}">`, '</a>');
-                    }
                 };
 
                 const modifySelectionText = (openTag, closeTag) => {
@@ -123,40 +116,101 @@
                         const textBeforeSelection = textarea.value.substring(0, textarea.selectionStart);
                         const textAfterSelection = textarea.value.substring(textarea.selectionEnd);
 
-                        const modifiedText = openTag + selectedText + closeTag;
-                        const newText = textBeforeSelection + modifiedText + textAfterSelection;
+                        const isTagAlreadyApplied = textBeforeSelection.endsWith(openTag) && textAfterSelection.startsWith(closeTag);
 
-                        textarea.value = newText;
+                        if (isTagAlreadyApplied) {
+                            const newText = textBeforeSelection.slice(0, -openTag.length) + selectedText + textAfterSelection.slice(closeTag.length);
+                            textarea.value = newText;
+                            textarea.selectionStart = textBeforeSelection.length - openTag.length;
+                            textarea.selectionEnd = textarea.selectionStart + selectedText.length;
+                        } else {
+                            const modifiedText = openTag + selectedText + closeTag;
+                            const newText = textBeforeSelection + modifiedText + textAfterSelection;
 
-                        // Set the cursor position after the modified text
-                        textarea.selectionStart = textBeforeSelection.length + modifiedText.length - closeTag.length;
-                        textarea.selectionEnd = textarea.selectionStart;
+                            textarea.value = newText;
+
+                            textarea.selectionStart = textBeforeSelection.length + openTag.length;
+                            textarea.selectionEnd = textarea.selectionStart + selectedText.length;
+                        }
                     } else {
                         const cursorPos = textarea.selectionStart;
                         const textBeforeCursor = textarea.value.substring(0, cursorPos);
                         const textAfterCursor = textarea.value.substring(cursorPos);
 
-                        const tag = openTag + closeTag;
+                        if (textBeforeCursor.endsWith(openTag) && textAfterCursor.startsWith(closeTag)) {
+                            const newText = textBeforeCursor.slice(0, -openTag.length) + textAfterCursor.slice(closeTag.length);
+                            textarea.value = newText;
+                            textarea.selectionStart = textBeforeCursor.length - openTag.length;
+                            textarea.selectionEnd = textarea.selectionStart;
+                        } else {
+                            const tag = openTag + closeTag;
+                            textarea.value = textBeforeCursor + tag + textAfterCursor;
 
-                        textarea.value = textBeforeCursor + tag + textAfterCursor;
-
-                        // Set the cursor position in the middle of the tag
-                        textarea.selectionStart = cursorPos + openTag.length;
-                        textarea.selectionEnd = cursorPos + openTag.length;
+                            textarea.selectionStart = cursorPos + openTag.length;
+                            textarea.selectionEnd = cursorPos + openTag.length;
+                        }
                     }
 
                     textarea.focus();
+
+                    updatePreview();
                 };
 
-                const onSelect = () => {
-                    content.value = document.querySelector('textarea').value;
+                const insertLink = () => {
+                    const url = prompt('Enter the URL:');
+                    const textarea = document.querySelector('textarea');
+                    if (url) {
+                        const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+                        const link = `[${selectedText}](${url})`;
+
+                        if (selectedText) {
+                            const textBeforeSelection = textarea.value.substring(0, textarea.selectionStart);
+                            const textAfterSelection = textarea.value.substring(textarea.selectionEnd);
+
+                            const newText = textBeforeSelection + link + textAfterSelection;
+
+                            textarea.value = newText;
+                            textarea.focus();
+                            textarea.selectionStart = textBeforeSelection.length + 1;
+                            textarea.selectionEnd = textBeforeSelection.length + 1 + selectedText.length;
+                        } else {
+                            const textBeforeCursor = textarea.value.substring(0, textarea.selectionStart);
+                            const textAfterCursor = textarea.value.substring(textarea.selectionEnd);
+
+                            const newText = textBeforeCursor + '[' + ']' + '(' + url + ')' + textAfterCursor;
+
+                            textarea.value = newText;
+                            textarea.focus();
+                            textarea.selectionStart = textBeforeCursor.length + 1;
+                            textarea.selectionEnd = textBeforeCursor.length + 1;
+                        }
+                    }
+
+                    textarea.focus();
+
+                    updatePreview();
+                };
+
+                const updatePreview = () => {
+                    let previewText = document.querySelector('textarea').value;
+                    const preview = document.getElementById('preview');
+
+                    previewText = previewText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    previewText = previewText.replace(/_(.*?)_/g, '<em>$1</em>');
+                    previewText = previewText.replace(/~(.*?)~/g, '<del>$1</del>');
+                    previewText = previewText.replace(/`(.*?)`/g, '<code>$1</code>');
+                    previewText = previewText.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
+
+                    if (preview) {
+                        preview.innerHTML = previewText;
+                    }
                 };
 
                 return {
                     content,
-                    insertFormat,
+                    toggleFormatting,
                     insertLink,
-                    onSelect,
+                    updatePreview,
                 };
             },
         }).mount('#app');
